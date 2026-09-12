@@ -1,0 +1,194 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Accept both normal GitHub folder layout and the user's flat-root ZIP.
+      # If files are already in the correct folders, nothing is changed.
+      - name: Normalize project layout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          function Ensure-File([string]$RootFile, [string]$Target) {
+            if (-not (Test-Path -LiteralPath $RootFile)) { return }
+            $src = (Resolve-Path -LiteralPath $RootFile).Path
+            $dst = [IO.Path]::GetFullPath((Join-Path (Get-Location) $Target))
+            if ($src -eq $dst) { return }
+            $parent = Split-Path -Parent $Target
+            if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+              New-Item -ItemType Directory -Force -Path $parent | Out-Null
+            }
+            Copy-Item -LiteralPath $RootFile -Destination $Target -Force
+            Write-Host "Synced: $RootFile -> $Target"
+          }
+
+          $map = @{
+            "main.mjs" = "electron/main.mjs"
+            "preload.mjs" = "electron/preload.mjs"
+            "0001_all.sql" = "migrations/0001_all.sql"
+            "favicon.svg" = "public/favicon.svg"
+            "icon-192.png" = "public/icon-192.png"
+            "icon-512.png" = "public/icon-512.png"
+            "migrate.mjs" = "scripts/migrate.mjs"
+            "migration.mjs" = "scripts/migration.mjs"
+            "with-app-env.mjs" = "scripts/with-app-env.mjs"
+            "admin-console.tsx" = "src/components/admin/admin-console.tsx"
+            "admin-login.tsx" = "src/components/admin/admin-login.tsx"
+            "serial-copy-modal.tsx" = "src/components/admin/serial-copy-modal.tsx"
+            "auth-stage.tsx" = "src/components/auth/auth-stage.tsx"
+            "auth-theater.tsx" = "src/components/auth/auth-theater.tsx"
+            "crystal.tsx" = "src/components/auth/crystal.tsx"
+            "form-fields.tsx" = "src/components/auth/form-fields.tsx"
+            "painite-mark.tsx" = "src/components/brand/painite-mark.tsx"
+            "color-desk.tsx" = "src/components/member/color-desk.tsx"
+            "desk-icons.tsx" = "src/components/member/desk-icons.tsx"
+            "facebook-desk.tsx" = "src/components/member/facebook-desk.tsx"
+            "facebook-frame.tsx" = "src/components/member/facebook-frame.tsx"
+            "lead-desk.tsx" = "src/components/member/lead-desk.tsx"
+            "member-header.tsx" = "src/components/member/member-header.tsx"
+            "member-identity.tsx" = "src/components/member/member-identity.tsx"
+            "member-nav.tsx" = "src/components/member/member-nav.tsx"
+            "member-notices.tsx" = "src/components/member/member-notices.tsx"
+            "member-shell.tsx" = "src/components/member/member-shell.tsx"
+            "post-desk.tsx" = "src/components/member/post-desk.tsx"
+            "rent-desk.tsx" = "src/components/member/rent-desk.tsx"
+            "robot-engine.tsx" = "src/components/member/robot-engine.tsx"
+            "preview-host-bridge.tsx" = "src/components/preview-host-bridge.tsx"
+            "site-footer.tsx" = "src/components/site-footer.tsx"
+            "update-gate.tsx" = "src/components/update-gate.tsx"
+            "admin-session.ts" = "src/lib/admin-session.ts"
+            "admin.ts" = "src/lib/admin.ts"
+            "ai-robot.ts" = "src/lib/ai-robot.ts"
+            "app-core.ts" = "src/lib/app-core.ts"
+            "client.ts" = "src/lib/auth/client.ts"
+            "email-password.ts" = "src/lib/auth/email-password.ts"
+            "gate-identity.server.ts" = "src/lib/auth/gate-identity.server.ts"
+            "gate-session-marker.ts" = "src/lib/auth/gate-session-marker.ts"
+            "gate-session.server.ts" = "src/lib/auth/gate-session.server.ts"
+            "gates.tsx" = "src/lib/auth/gates.tsx"
+            "isolation.server.ts" = "src/lib/auth/isolation.server.ts"
+            "middleware.ts" = "src/lib/auth/middleware.ts"
+            "pglite-dialect.ts" = "src/lib/auth/pglite-dialect.ts"
+            "popup.server.ts" = "src/lib/auth/popup.server.ts"
+            "preview.ts" = "src/lib/auth/preview.ts"
+            "provider.tsx" = "src/lib/auth/provider.tsx"
+            "providers.ts" = "src/lib/auth/providers.ts"
+            "server.ts" = "src/lib/auth/server.ts"
+            "sign-in-gate.ts" = "src/lib/auth/sign-in-gate.ts"
+            "use-current-user.ts" = "src/lib/auth/use-current-user.ts"
+            "verify.server.ts" = "src/lib/auth/verify.server.ts"
+            "chrome-overlay.ts" = "src/lib/chrome-overlay.ts"
+            "cloud.ts" = "src/lib/cloud.ts"
+            "db.ts" = "src/lib/db.ts"
+            "desks.ts" = "src/lib/desks.ts"
+            "desktop.ts" = "src/lib/desktop.ts"
+            "error-component.tsx" = "src/lib/error-component.tsx"
+            "facebook-profiles.ts" = "src/lib/facebook-profiles.ts"
+            "firebase.ts" = "src/lib/firebase.ts"
+            "inbox.ts" = "src/lib/inbox.ts"
+            "ip-check.ts" = "src/lib/ip-check.ts"
+            "leads.ts" = "src/lib/leads.ts"
+            "member-ops.ts" = "src/lib/member-ops.ts"
+            "preview-embedder-origin.ts" = "src/lib/preview-embedder-origin.ts"
+            "preview-host-bridge.ts" = "src/lib/preview-host-bridge.ts"
+            "profiles.ts" = "src/lib/profiles.ts"
+            "rent-posts.ts" = "src/lib/rent-posts.ts"
+            "secret-hash.ts" = "src/lib/secret-hash.ts"
+            "secret.server.ts" = "src/lib/auth/secret.server.ts"
+            "utils.ts" = "src/lib/utils.ts"
+            "zillow.ts" = "src/lib/zillow.ts"
+            "routeTree.gen.ts" = "src/routeTree.gen.ts"
+            "router.tsx" = "src/router.tsx"
+            "__root.tsx" = "src/routes/__root.tsx"
+            "console.tsx" = "src/routes/admin/console.tsx"
+            "src__routes__admin__index.tsx" = "src/routes/admin/index.tsx"
+            "$.ts" = "src/routes/api/auth/$.ts"
+            "index.tsx" = "src/routes/index.tsx"
+            "login.tsx" = "src/routes/login.tsx"
+            "market.tsx" = "src/routes/market.tsx"
+            "register.tsx" = "src/routes/register.tsx"
+            "styles.css" = "src/styles.css"
+          }
+
+          foreach ($entry in $map.GetEnumerator()) {
+            Ensure-File $entry.Key $entry.Value
+          }
+
+          $required = @(
+            "package.json",
+            "tsconfig.json",
+            "vite.config.ts",
+            "electron-builder.yml",
+            "electron/main.mjs",
+            "electron/preload.mjs",
+            "src/router.tsx",
+            "src/routeTree.gen.ts",
+            "src/routes/index.tsx",
+            "src/routes/register.tsx",
+            "src/routes/login.tsx",
+            "src/lib/db.ts",
+            "src/lib/ai-robot.ts",
+            "migrations/0001_all.sql"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path -LiteralPath $file)) {
+              throw "Required project file is missing after layout normalization: $file"
+            }
+          }
+
+          $pkg = Get-Content -Raw package.json | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($pkg.version)) { throw "package.json version is missing." }
+          Write-Host "Project version: $($pkg.version)"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          # Remove Linux package-lock.json to avoid npm issue #4828 where Windows optional native bindings are skipped
+          Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
+          npm install --no-audit --no-fund
+          Write-Host "Ensuring Windows native bindings are installed..."
+          npm install --no-audit --no-fund --force @tailwindcss/oxide-win32-x64-msvc@4.3.3 @rolldown/binding-win32-x64-msvc@1.2.8 lightningcss-win32-x64-msvc@1.33.0
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build Windows installer
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY_DISABLED: "true"
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path "dist-desktop" -Filter "*.exe" -File -ErrorAction SilentlyContinue
+          if (-not $files) {
+            Write-Error "No Windows installer (.exe) was produced."
+            exit 1
+          }
+          $files | ForEach-Object { Write-Host "Installer: $($_.FullName)" }
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Painite-Windows-Setup
+          path: dist-desktop/*.exe
+          if-no-files-found: error
+          retention-days: 30

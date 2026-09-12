@@ -1,0 +1,30 @@
+appId: online.painitemail.marketplace
+productName: Painite Marketplace
+asar: false
+files:
+  - electron/**
+  - src/**
+  - scripts/**
+  - public/**
+  - migrations/**
+  - dist/**
+  - .output/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - node_modules/**
+win:
+  target:
+    - nsis
+  icon: public/icon-512.png
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+directories:
+  output: dist-desktop
